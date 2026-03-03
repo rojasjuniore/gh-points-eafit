@@ -1,0 +1,100 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Auth - Solo admin
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  name          String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+// Comités de la OE
+model Committee {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  description String?
+  color       String?   // Color para el podio
+  points      Int       @default(0) // Puntos directos (bonificaciones)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  members     MemberCommittee[]
+}
+
+// Miembros de la OE
+model Member {
+  id          String    @id @default(cuid())
+  name        String
+  email       String    @unique
+  type        MemberType @default(NEW)
+  points      Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  committees  MemberCommittee[]
+  assignments PointAssignment[]
+}
+
+enum MemberType {
+  NEW      // Miembro nuevo
+  ACTIVE   // Miembro activo
+}
+
+// Relación Miembro-Comité (máximo 3 comités por miembro)
+model MemberCommittee {
+  id          String    @id @default(cuid())
+  memberId    String
+  committeeId String
+  joinedAt    DateTime  @default(now())
+  
+  member      Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  committee   Committee @relation(fields: [committeeId], references: [id], onDelete: Cascade)
+  
+  @@unique([memberId, committeeId])
+}
+
+// Eventos que dan GH Points
+model Event {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  date        DateTime
+  pointsValue Int       // Puntos que da el evento
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  assignments PointAssignment[]
+}
+
+// Asignación de puntos (historial)
+model PointAssignment {
+  id          String    @id @default(cuid())
+  memberId    String
+  eventId     String
+  points      Int
+  createdAt   DateTime  @default(now())
+  
+  member      Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  event       Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  
+  @@unique([memberId, eventId]) // Un miembro solo puede recibir puntos una vez por evento
+}
+
+// Puntos directos a comités (bonificaciones)
+model CommitteeBonus {
+  id          String    @id @default(cuid())
+  committeeId String
+  points      Int
+  reason      String
+  createdAt   DateTime  @default(now())
+}
